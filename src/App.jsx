@@ -23,6 +23,8 @@ const RabbitBreedingApp = () => {
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
   const [editingItem, setEditingItem] = useState(null);
+  const [firebaseConnected, setFirebaseConnected] = useState(false);
+  const [firebaseError, setFirebaseError] = useState(null);
 
   const [rabbitForm, setRabbitForm] = useState({
     name: '', breed: '', gender: '', birthDate: '', notes: '',
@@ -46,10 +48,20 @@ const RabbitBreedingApp = () => {
 
   // Real-time sync with Firestore
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'rabbits'), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setRabbits(data);
-    });
+    const unsubscribe = onSnapshot(
+      collection(db, 'rabbits'),
+      (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setRabbits(data);
+        setFirebaseConnected(true);
+        setFirebaseError(null);
+      },
+      (error) => {
+        console.error('Firebase connection error:', error);
+        setFirebaseError(error.message);
+        setFirebaseConnected(false);
+      }
+    );
     return () => unsubscribe();
   }, []);
 
@@ -413,10 +425,48 @@ const RabbitBreedingApp = () => {
     <div style={{minHeight: '100vh', background: '#f9fafb'}}>
       <header style={headerStyle}>
         <div style={containerStyle}>
-          <h1 style={{fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem'}}>Rabbit Breeding Manager</h1>
-          <p style={{color: 'rgba(255, 255, 255, 0.9)'}}>Track your homestead rabbits and operations</p>
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+            <div>
+              <h1 style={{fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem'}}>Rabbit Breeding Manager</h1>
+              <p style={{color: 'rgba(255, 255, 255, 0.9)'}}>Track your homestead rabbits and operations</p>
+            </div>
+            <div style={{
+              padding: '0.5rem 1rem',
+              borderRadius: '9999px',
+              background: firebaseConnected ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+              color: 'white',
+              fontSize: '0.875rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}>
+              <div style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: firebaseConnected ? '#22c55e' : '#ef4444'
+              }} />
+              {firebaseConnected ? 'Cloud Connected' : firebaseError ? 'Connection Error' : 'Connecting...'}
+            </div>
+          </div>
         </div>
       </header>
+
+      {firebaseError && (
+        <div style={{
+          background: '#fef2f2',
+          border: '1px solid #fecaca',
+          color: '#991b1b',
+          padding: '1rem',
+          margin: '1rem auto',
+          maxWidth: '1280px',
+          borderRadius: '0.5rem'
+        }}>
+          <strong>⚠️ Firebase Connection Error:</strong> {firebaseError}
+          <br />
+          <small>Check browser console (F12) for details. Data is not being saved to the cloud.</small>
+        </div>
+      )}
 
       <div style={containerStyle}>
         <div style={statsGridStyle}>
