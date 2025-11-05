@@ -1,32 +1,25 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Calendar } from 'lucide-react';
+import { db } from './firebase';
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  query,
+  orderBy
+} from 'firebase/firestore';
 
 const RabbitBreedingApp = () => {
   const [activeTab, setActiveTab] = useState('rabbits');
-  const [rabbits, setRabbits] = useState(() => {
-    const saved = localStorage.getItem('rabbits');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [breedings, setBreedings] = useState(() => {
-    const saved = localStorage.getItem('breedings');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [litters, setLitters] = useState(() => {
-    const saved = localStorage.getItem('litters');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [events, setEvents] = useState(() => {
-    const saved = localStorage.getItem('events');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [fairs, setFairs] = useState(() => {
-    const saved = localStorage.getItem('fairs');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [transactions, setTransactions] = useState(() => {
-    const saved = localStorage.getItem('transactions');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [rabbits, setRabbits] = useState([]);
+  const [breedings, setBreedings] = useState([]);
+  const [litters, setLitters] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [fairs, setFairs] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
   const [editingItem, setEditingItem] = useState(null);
@@ -51,30 +44,54 @@ const RabbitBreedingApp = () => {
     type: 'expense', category: '', amount: '', date: '', description: ''
   });
 
-  // Save to localStorage whenever data changes
+  // Real-time sync with Firestore
   useEffect(() => {
-    localStorage.setItem('rabbits', JSON.stringify(rabbits));
-  }, [rabbits]);
+    const unsubscribe = onSnapshot(collection(db, 'rabbits'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setRabbits(data);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem('breedings', JSON.stringify(breedings));
-  }, [breedings]);
+    const unsubscribe = onSnapshot(collection(db, 'breedings'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setBreedings(data);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem('litters', JSON.stringify(litters));
-  }, [litters]);
+    const unsubscribe = onSnapshot(collection(db, 'litters'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setLitters(data);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem('events', JSON.stringify(events));
-  }, [events]);
+    const unsubscribe = onSnapshot(collection(db, 'events'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setEvents(data);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem('fairs', JSON.stringify(fairs));
-  }, [fairs]);
+    const unsubscribe = onSnapshot(collection(db, 'fairs'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setFairs(data);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem('transactions', JSON.stringify(transactions));
-  }, [transactions]);
+    const unsubscribe = onSnapshot(collection(db, 'transactions'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setTransactions(data);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const openModal = (type, item = null) => {
     setModalType(type);
@@ -101,7 +118,7 @@ const RabbitBreedingApp = () => {
     setTransactionForm({ type: 'expense', category: '', amount: '', date: '', description: '' });
   };
 
-  const saveRabbit = () => {
+  const saveRabbit = async () => {
     const currentDate = new Date().toISOString().split('T')[0];
     let updatedWeightHistory = rabbitForm.weightHistory || [];
 
@@ -116,102 +133,138 @@ const RabbitBreedingApp = () => {
       }
     }
 
-    if (editingItem) {
-      setRabbits(rabbits.map(r => r.id === editingItem.id ? {
-        ...rabbitForm,
-        id: r.id,
-        weightHistory: updatedWeightHistory
-      } : r));
-    } else {
-      setRabbits([...rabbits, {
-        ...rabbitForm,
-        id: Date.now(),
-        status: 'active',
-        weightHistory: updatedWeightHistory
-      }]);
-    }
-    closeModal();
-  };
+    const rabbitData = {
+      ...rabbitForm,
+      weightHistory: updatedWeightHistory,
+      status: rabbitForm.status || 'active'
+    };
 
-  const saveBreeding = () => {
-    if (editingItem) {
-      setBreedings(breedings.map(b => b.id === editingItem.id ? { ...breedingForm, id: b.id } : b));
-    } else {
-      setBreedings([...breedings, { ...breedingForm, id: Date.now(), status: 'pending' }]);
-    }
-    closeModal();
-  };
-
-  const saveLitter = () => {
-    if (editingItem) {
-      setLitters(litters.map(l => l.id === editingItem.id ? { ...litterForm, id: l.id } : l));
-    } else {
-      setLitters([...litters, { ...litterForm, id: Date.now() }]);
-      setBreedings(breedings.map(b => 
-        b.id === parseInt(litterForm.breedingId) ? { ...b, status: 'completed' } : b
-      ));
-    }
-    closeModal();
-  };
-
-  const saveEvent = () => {
-    if (editingItem) {
-      setEvents(events.map(e => e.id === editingItem.id ? { ...eventForm, id: e.id } : e));
-    } else {
-      const newEvent = { ...eventForm, id: Date.now() };
-      setEvents([...events, newEvent]);
-      
-      if (eventForm.type === 'death') {
-        setRabbits(rabbits.map(r => 
-          r.id === parseInt(eventForm.rabbitId) ? { ...r, status: 'deceased' } : r
-        ));
+    try {
+      if (editingItem) {
+        await updateDoc(doc(db, 'rabbits', editingItem.id), rabbitData);
+      } else {
+        await addDoc(collection(db, 'rabbits'), rabbitData);
       }
-      
-      if (eventForm.type === 'sale' && eventForm.price) {
-        setTransactions([...transactions, {
-          id: Date.now() + 1,
-          type: 'income',
-          category: 'Rabbit Sale',
-          amount: eventForm.price,
-          date: eventForm.date,
-          description: `Sale of rabbit`
-        }]);
+      closeModal();
+    } catch (error) {
+      console.error('Error saving rabbit:', error);
+      alert('Error saving rabbit. Please try again.');
+    }
+  };
+
+  const saveBreeding = async () => {
+    const breedingData = {
+      ...breedingForm,
+      status: breedingForm.status || 'pending'
+    };
+
+    try {
+      if (editingItem) {
+        await updateDoc(doc(db, 'breedings', editingItem.id), breedingData);
+      } else {
+        await addDoc(collection(db, 'breedings'), breedingData);
       }
+      closeModal();
+    } catch (error) {
+      console.error('Error saving breeding:', error);
+      alert('Error saving breeding. Please try again.');
     }
-    closeModal();
   };
 
-  const saveFair = () => {
-    if (editingItem) {
-      setFairs(fairs.map(f => f.id === editingItem.id ? { ...fairForm, id: f.id } : f));
-    } else {
-      setFairs([...fairs, { ...fairForm, id: Date.now() }]);
+  const saveLitter = async () => {
+    try {
+      if (editingItem) {
+        await updateDoc(doc(db, 'litters', editingItem.id), litterForm);
+      } else {
+        await addDoc(collection(db, 'litters'), litterForm);
+        // Update breeding status to completed
+        if (litterForm.breedingId) {
+          await updateDoc(doc(db, 'breedings', litterForm.breedingId), { status: 'completed' });
+        }
+      }
+      closeModal();
+    } catch (error) {
+      console.error('Error saving litter:', error);
+      alert('Error saving litter. Please try again.');
     }
-    closeModal();
   };
 
-  const saveTransaction = () => {
-    if (editingItem) {
-      setTransactions(transactions.map(t => t.id === editingItem.id ? { ...transactionForm, id: t.id } : t));
-    } else {
-      setTransactions([...transactions, { ...transactionForm, id: Date.now() }]);
+  const saveEvent = async () => {
+    try {
+      if (editingItem) {
+        await updateDoc(doc(db, 'events', editingItem.id), eventForm);
+      } else {
+        await addDoc(collection(db, 'events'), eventForm);
+
+        // Update rabbit status if death
+        if (eventForm.type === 'death' && eventForm.rabbitId) {
+          await updateDoc(doc(db, 'rabbits', eventForm.rabbitId), { status: 'deceased' });
+        }
+
+        // Create transaction for sale
+        if (eventForm.type === 'sale' && eventForm.price) {
+          await addDoc(collection(db, 'transactions'), {
+            type: 'income',
+            category: 'Rabbit Sale',
+            amount: eventForm.price,
+            date: eventForm.date,
+            description: `Sale of rabbit`
+          });
+        }
+      }
+      closeModal();
+    } catch (error) {
+      console.error('Error saving event:', error);
+      alert('Error saving event. Please try again.');
     }
-    closeModal();
   };
 
-  const deleteItem = (type, id) => {
+  const saveFair = async () => {
+    try {
+      if (editingItem) {
+        await updateDoc(doc(db, 'fairs', editingItem.id), fairForm);
+      } else {
+        await addDoc(collection(db, 'fairs'), fairForm);
+      }
+      closeModal();
+    } catch (error) {
+      console.error('Error saving fair:', error);
+      alert('Error saving fair. Please try again.');
+    }
+  };
+
+  const saveTransaction = async () => {
+    try {
+      if (editingItem) {
+        await updateDoc(doc(db, 'transactions', editingItem.id), transactionForm);
+      } else {
+        await addDoc(collection(db, 'transactions'), transactionForm);
+      }
+      closeModal();
+    } catch (error) {
+      console.error('Error saving transaction:', error);
+      alert('Error saving transaction. Please try again.');
+    }
+  };
+
+  const deleteItem = async (type, id) => {
     if (!window.confirm('Are you sure?')) return;
-    
-    if (type === 'rabbit') setRabbits(rabbits.filter(r => r.id !== id));
-    else if (type === 'breeding') setBreedings(breedings.filter(b => b.id !== id));
-    else if (type === 'litter') setLitters(litters.filter(l => l.id !== id));
-    else if (type === 'event') setEvents(events.filter(e => e.id !== id));
-    else if (type === 'fair') setFairs(fairs.filter(f => f.id !== id));
-    else if (type === 'transaction') setTransactions(transactions.filter(t => t.id !== id));
+
+    try {
+      await deleteDoc(doc(db, type === 'rabbit' ? 'rabbits' :
+                            type === 'breeding' ? 'breedings' :
+                            type === 'litter' ? 'litters' :
+                            type === 'event' ? 'events' :
+                            type === 'fair' ? 'fairs' :
+                            'transactions', id));
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      alert('Error deleting item. Please try again.');
+    }
   };
 
   const getRabbitName = (id) => {
-    const rabbit = rabbits.find(r => r.id === parseInt(id));
+    const rabbit = rabbits.find(r => r.id === id);
     return rabbit ? rabbit.name : 'Unknown';
   };
 
@@ -521,7 +574,7 @@ const RabbitBreedingApp = () => {
               ) : (
                 <div>
                   {litters.map(litter => {
-                    const breeding = breedings.find(b => b.id === parseInt(litter.breedingId));
+                    const breeding = breedings.find(b => b.id === litter.breedingId);
                     return (
                       <div key={litter.id} style={{padding: '1.5rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                         <div style={{flex: 1}}>
