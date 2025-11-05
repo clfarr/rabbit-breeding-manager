@@ -1,20 +1,39 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Calendar } from 'lucide-react';
 
 const RabbitBreedingApp = () => {
   const [activeTab, setActiveTab] = useState('rabbits');
-  const [rabbits, setRabbits] = useState([]);
-  const [breedings, setBreedings] = useState([]);
-  const [litters, setLitters] = useState([]);
-  const [events, setEvents] = useState([]);
-  const [fairs, setFairs] = useState([]);
-  const [transactions, setTransactions] = useState([]);
+  const [rabbits, setRabbits] = useState(() => {
+    const saved = localStorage.getItem('rabbits');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [breedings, setBreedings] = useState(() => {
+    const saved = localStorage.getItem('breedings');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [litters, setLitters] = useState(() => {
+    const saved = localStorage.getItem('litters');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [events, setEvents] = useState(() => {
+    const saved = localStorage.getItem('events');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [fairs, setFairs] = useState(() => {
+    const saved = localStorage.getItem('fairs');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [transactions, setTransactions] = useState(() => {
+    const saved = localStorage.getItem('transactions');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
   const [editingItem, setEditingItem] = useState(null);
 
   const [rabbitForm, setRabbitForm] = useState({
-    name: '', breed: '', gender: '', birthDate: '', notes: ''
+    name: '', breed: '', gender: '', birthDate: '', notes: '',
+    photo: '', currentWeight: '', damId: '', sireId: '', weightHistory: []
   });
   const [breedingForm, setBreedingForm] = useState({
     damId: '', sireId: '', breedDate: '', expectedKindling: '', notes: ''
@@ -31,6 +50,31 @@ const RabbitBreedingApp = () => {
   const [transactionForm, setTransactionForm] = useState({
     type: 'expense', category: '', amount: '', date: '', description: ''
   });
+
+  // Save to localStorage whenever data changes
+  useEffect(() => {
+    localStorage.setItem('rabbits', JSON.stringify(rabbits));
+  }, [rabbits]);
+
+  useEffect(() => {
+    localStorage.setItem('breedings', JSON.stringify(breedings));
+  }, [breedings]);
+
+  useEffect(() => {
+    localStorage.setItem('litters', JSON.stringify(litters));
+  }, [litters]);
+
+  useEffect(() => {
+    localStorage.setItem('events', JSON.stringify(events));
+  }, [events]);
+
+  useEffect(() => {
+    localStorage.setItem('fairs', JSON.stringify(fairs));
+  }, [fairs]);
+
+  useEffect(() => {
+    localStorage.setItem('transactions', JSON.stringify(transactions));
+  }, [transactions]);
 
   const openModal = (type, item = null) => {
     setModalType(type);
@@ -49,7 +93,7 @@ const RabbitBreedingApp = () => {
   const closeModal = () => {
     setShowModal(false);
     setEditingItem(null);
-    setRabbitForm({ name: '', breed: '', gender: '', birthDate: '', notes: '' });
+    setRabbitForm({ name: '', breed: '', gender: '', birthDate: '', notes: '', photo: '', currentWeight: '', damId: '', sireId: '', weightHistory: [] });
     setBreedingForm({ damId: '', sireId: '', breedDate: '', expectedKindling: '', notes: '' });
     setLitterForm({ breedingId: '', birthDate: '', kitsAlive: '', kitsDead: '', notes: '' });
     setEventForm({ type: 'death', rabbitId: '', date: '', price: '', buyerNotes: '', notes: '' });
@@ -58,10 +102,33 @@ const RabbitBreedingApp = () => {
   };
 
   const saveRabbit = () => {
+    const currentDate = new Date().toISOString().split('T')[0];
+    let updatedWeightHistory = rabbitForm.weightHistory || [];
+
+    // If there's a current weight and it's different from the last recorded weight, add it to history
+    if (rabbitForm.currentWeight && rabbitForm.currentWeight !== '') {
+      const lastWeight = updatedWeightHistory.length > 0 ? updatedWeightHistory[updatedWeightHistory.length - 1].weight : null;
+      if (lastWeight !== parseFloat(rabbitForm.currentWeight)) {
+        updatedWeightHistory = [...updatedWeightHistory, {
+          date: currentDate,
+          weight: parseFloat(rabbitForm.currentWeight)
+        }];
+      }
+    }
+
     if (editingItem) {
-      setRabbits(rabbits.map(r => r.id === editingItem.id ? { ...rabbitForm, id: r.id } : r));
+      setRabbits(rabbits.map(r => r.id === editingItem.id ? {
+        ...rabbitForm,
+        id: r.id,
+        weightHistory: updatedWeightHistory
+      } : r));
     } else {
-      setRabbits([...rabbits, { ...rabbitForm, id: Date.now(), status: 'active' }]);
+      setRabbits([...rabbits, {
+        ...rabbitForm,
+        id: Date.now(),
+        status: 'active',
+        weightHistory: updatedWeightHistory
+      }]);
     }
     closeModal();
   };
@@ -155,6 +222,22 @@ const RabbitBreedingApp = () => {
     const months = (today.getFullYear() - birth.getFullYear()) * 12 + today.getMonth() - birth.getMonth();
     if (months < 12) return `${months}mo`;
     return `${Math.floor(months / 12)}yr ${months % 12}mo`;
+  };
+
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setRabbitForm({ ...rabbitForm, photo: reader.result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const getCurrentWeight = (rabbit) => {
+    if (!rabbit.weightHistory || rabbit.weightHistory.length === 0) return 'N/A';
+    return `${rabbit.weightHistory[rabbit.weightHistory.length - 1].weight} lbs`;
   };
 
   const stats = useMemo(() => {
@@ -333,11 +416,28 @@ const RabbitBreedingApp = () => {
               ) : (
                 <div>
                   {rabbits.map(rabbit => (
-                    <div key={rabbit.id} style={{padding: '1rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between'}}>
-                      <div>
-                        <div style={{fontWeight: 'bold', fontSize: '1.1rem'}}>{rabbit.name}</div>
-                        <div style={{fontSize: '0.9rem', color: '#6b7280'}}>
-                          {rabbit.breed} • {rabbit.gender} • {calculateAge(rabbit.birthDate)}
+                    <div key={rabbit.id} style={{padding: '1rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                      <div style={{display: 'flex', gap: '1rem', alignItems: 'center', flex: 1}}>
+                        {rabbit.photo && (
+                          <img
+                            src={rabbit.photo}
+                            alt={rabbit.name}
+                            style={{width: '80px', height: '80px', objectFit: 'cover', borderRadius: '0.5rem'}}
+                          />
+                        )}
+                        <div>
+                          <div style={{fontWeight: 'bold', fontSize: '1.1rem'}}>{rabbit.name}</div>
+                          <div style={{fontSize: '0.9rem', color: '#6b7280'}}>
+                            {rabbit.breed} • {rabbit.gender} • {calculateAge(rabbit.birthDate)}
+                          </div>
+                          <div style={{fontSize: '0.85rem', color: '#6b7280', marginTop: '0.25rem'}}>
+                            Weight: {getCurrentWeight(rabbit)}
+                          </div>
+                          {(rabbit.damId || rabbit.sireId) && (
+                            <div style={{fontSize: '0.85rem', color: '#6b7280', marginTop: '0.25rem'}}>
+                              Parents: {rabbit.damId ? getRabbitName(rabbit.damId) : 'Unknown'} × {rabbit.sireId ? getRabbitName(rabbit.sireId) : 'Unknown'}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div style={{display: 'flex', gap: '0.5rem'}}>
@@ -370,9 +470,37 @@ const RabbitBreedingApp = () => {
               ) : (
                 <div>
                   {breedings.map(breeding => (
-                    <div key={breeding.id} style={{padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem', marginBottom: '1rem'}}>
-                      <div style={{fontWeight: 'bold'}}>{getRabbitName(breeding.damId)} × {getRabbitName(breeding.sireId)}</div>
-                      <div style={{fontSize: '0.875rem', color: '#6b7280'}}>Bred: {breeding.breedDate}</div>
+                    <div key={breeding.id} style={{padding: '1.5rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                      <div style={{flex: 1}}>
+                        <div style={{fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.5rem'}}>
+                          {getRabbitName(breeding.damId)} × {getRabbitName(breeding.sireId)}
+                        </div>
+                        <div style={{fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem'}}>
+                          <strong>Bred:</strong> {breeding.breedDate}
+                        </div>
+                        <div style={{fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem'}}>
+                          <strong>Expected Kindling:</strong> {breeding.expectedKindling}
+                        </div>
+                        <div style={{
+                          fontSize: '0.875rem',
+                          padding: '0.25rem 0.75rem',
+                          borderRadius: '9999px',
+                          background: breeding.status === 'completed' ? '#dcfce7' : '#fef3c7',
+                          color: breeding.status === 'completed' ? '#166534' : '#92400e',
+                          display: 'inline-block',
+                          marginTop: '0.5rem'
+                        }}>
+                          {breeding.status === 'completed' ? 'Completed' : 'Pending'}
+                        </div>
+                      </div>
+                      <div style={{display: 'flex', gap: '0.5rem'}}>
+                        <button onClick={() => openModal('breeding', breeding)} style={{...buttonStyle, padding: '0.5rem', background: '#2563eb'}}>
+                          <Edit2 size={18} />
+                        </button>
+                        <button onClick={() => deleteItem('breeding', breeding.id)} style={{...buttonStyle, padding: '0.5rem', background: '#dc2626'}}>
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -388,7 +516,48 @@ const RabbitBreedingApp = () => {
                   <Plus size={20} /> Record Litter
                 </button>
               </div>
-              {litters.length === 0 && <div style={{textAlign: 'center', padding: '3rem', color: '#9ca3af'}}>No litters recorded.</div>}
+              {litters.length === 0 ? (
+                <div style={{textAlign: 'center', padding: '3rem', color: '#9ca3af'}}>No litters recorded.</div>
+              ) : (
+                <div>
+                  {litters.map(litter => {
+                    const breeding = breedings.find(b => b.id === parseInt(litter.breedingId));
+                    return (
+                      <div key={litter.id} style={{padding: '1.5rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                        <div style={{flex: 1}}>
+                          <div style={{fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.5rem'}}>
+                            {breeding ? `${getRabbitName(breeding.damId)} × ${getRabbitName(breeding.sireId)}` : 'Unknown Parents'}
+                          </div>
+                          <div style={{fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem'}}>
+                            <strong>Birth Date:</strong> {litter.birthDate}
+                          </div>
+                          <div style={{fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem'}}>
+                            <strong>Kits Born Alive:</strong> {litter.kitsAlive}
+                          </div>
+                          {litter.kitsDead && litter.kitsDead !== '0' && (
+                            <div style={{fontSize: '0.875rem', color: '#dc2626', marginBottom: '0.25rem'}}>
+                              <strong>Kits Born Dead:</strong> {litter.kitsDead}
+                            </div>
+                          )}
+                          {litter.notes && (
+                            <div style={{fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem'}}>
+                              <strong>Notes:</strong> {litter.notes}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{display: 'flex', gap: '0.5rem'}}>
+                          <button onClick={() => openModal('litter', litter)} style={{...buttonStyle, padding: '0.5rem', background: '#2563eb'}}>
+                            <Edit2 size={18} />
+                          </button>
+                          <button onClick={() => deleteItem('litter', litter.id)} style={{...buttonStyle, padding: '0.5rem', background: '#dc2626'}}>
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -400,7 +569,47 @@ const RabbitBreedingApp = () => {
                   <Plus size={20} /> Add Event
                 </button>
               </div>
-              {events.length === 0 && <div style={{textAlign: 'center', padding: '3rem', color: '#9ca3af'}}>No events recorded.</div>}
+              {events.length === 0 ? (
+                <div style={{textAlign: 'center', padding: '3rem', color: '#9ca3af'}}>No events recorded.</div>
+              ) : (
+                <div>
+                  {events.map(event => (
+                    <div key={event.id} style={{padding: '1.5rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                      <div style={{flex: 1}}>
+                        <div style={{fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.5rem'}}>
+                          {getRabbitName(event.rabbitId)} - {event.type === 'death' ? 'Death' : 'Sale'}
+                        </div>
+                        <div style={{fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem'}}>
+                          <strong>Date:</strong> {event.date}
+                        </div>
+                        {event.type === 'sale' && event.price && (
+                          <div style={{fontSize: '0.875rem', color: '#16a34a', marginBottom: '0.25rem'}}>
+                            <strong>Sale Price:</strong> ${event.price}
+                          </div>
+                        )}
+                        {event.buyerNotes && (
+                          <div style={{fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem'}}>
+                            <strong>Buyer:</strong> {event.buyerNotes}
+                          </div>
+                        )}
+                        {event.notes && (
+                          <div style={{fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem'}}>
+                            <strong>Notes:</strong> {event.notes}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{display: 'flex', gap: '0.5rem'}}>
+                        <button onClick={() => openModal('event', event)} style={{...buttonStyle, padding: '0.5rem', background: '#2563eb'}}>
+                          <Edit2 size={18} />
+                        </button>
+                        <button onClick={() => deleteItem('event', event.id)} style={{...buttonStyle, padding: '0.5rem', background: '#dc2626'}}>
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -412,7 +621,40 @@ const RabbitBreedingApp = () => {
                   <Plus size={20} /> Add Fair
                 </button>
               </div>
-              {fairs.length === 0 && <div style={{textAlign: 'center', padding: '3rem', color: '#9ca3af'}}>No fairs added.</div>}
+              {fairs.length === 0 ? (
+                <div style={{textAlign: 'center', padding: '3rem', color: '#9ca3af'}}>No fairs added.</div>
+              ) : (
+                <div>
+                  {fairs.map(fair => (
+                    <div key={fair.id} style={{padding: '1.5rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                      <div style={{flex: 1}}>
+                        <div style={{fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.5rem'}}>
+                          {fair.name}
+                        </div>
+                        <div style={{fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem'}}>
+                          <strong>Date:</strong> {fair.date}
+                        </div>
+                        <div style={{fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem'}}>
+                          <strong>Location:</strong> {fair.location}
+                        </div>
+                        {fair.notes && (
+                          <div style={{fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem'}}>
+                            <strong>Notes:</strong> {fair.notes}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{display: 'flex', gap: '0.5rem'}}>
+                        <button onClick={() => openModal('fair', fair)} style={{...buttonStyle, padding: '0.5rem', background: '#2563eb'}}>
+                          <Edit2 size={18} />
+                        </button>
+                        <button onClick={() => deleteItem('fair', fair.id)} style={{...buttonStyle, padding: '0.5rem', background: '#dc2626'}}>
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -424,7 +666,51 @@ const RabbitBreedingApp = () => {
                   <Plus size={20} /> Add Transaction
                 </button>
               </div>
-              {transactions.length === 0 && <div style={{textAlign: 'center', padding: '3rem', color: '#9ca3af'}}>No transactions recorded.</div>}
+              {transactions.length === 0 ? (
+                <div style={{textAlign: 'center', padding: '3rem', color: '#9ca3af'}}>No transactions recorded.</div>
+              ) : (
+                <div>
+                  {transactions.map(transaction => (
+                    <div key={transaction.id} style={{padding: '1.5rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                      <div style={{flex: 1}}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem'}}>
+                          <div style={{fontWeight: 'bold', fontSize: '1.1rem'}}>
+                            {transaction.category}
+                          </div>
+                          <div style={{
+                            fontSize: '0.875rem',
+                            padding: '0.25rem 0.75rem',
+                            borderRadius: '9999px',
+                            background: transaction.type === 'income' ? '#dcfce7' : '#fee2e2',
+                            color: transaction.type === 'income' ? '#166534' : '#991b1b'
+                          }}>
+                            {transaction.type === 'income' ? 'Income' : 'Expense'}
+                          </div>
+                        </div>
+                        <div style={{fontSize: '1.25rem', fontWeight: 'bold', color: transaction.type === 'income' ? '#16a34a' : '#dc2626', marginBottom: '0.25rem'}}>
+                          {transaction.type === 'income' ? '+' : '-'}${parseFloat(transaction.amount).toFixed(2)}
+                        </div>
+                        <div style={{fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem'}}>
+                          <strong>Date:</strong> {transaction.date}
+                        </div>
+                        {transaction.description && (
+                          <div style={{fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem'}}>
+                            <strong>Description:</strong> {transaction.description}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{display: 'flex', gap: '0.5rem'}}>
+                        <button onClick={() => openModal('transaction', transaction)} style={{...buttonStyle, padding: '0.5rem', background: '#2563eb'}}>
+                          <Edit2 size={18} />
+                        </button>
+                        <button onClick={() => deleteItem('transaction', transaction.id)} style={{...buttonStyle, padding: '0.5rem', background: '#dc2626'}}>
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -464,10 +750,53 @@ const RabbitBreedingApp = () => {
                 </select>
                 <input
                   type="date"
+                  placeholder="Birth Date"
                   value={rabbitForm.birthDate}
                   onChange={(e) => setRabbitForm({...rabbitForm, birthDate: e.target.value})}
                   style={inputStyle}
                 />
+                <select
+                  value={rabbitForm.damId}
+                  onChange={(e) => setRabbitForm({...rabbitForm, damId: e.target.value})}
+                  style={inputStyle}
+                >
+                  <option value="">Select Dam (Mother) - Optional</option>
+                  {rabbits.filter(r => r.gender === 'female' && r.id !== editingItem?.id).map(r => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+                <select
+                  value={rabbitForm.sireId}
+                  onChange={(e) => setRabbitForm({...rabbitForm, sireId: e.target.value})}
+                  style={inputStyle}
+                >
+                  <option value="">Select Sire (Father) - Optional</option>
+                  {rabbits.filter(r => r.gender === 'male' && r.id !== editingItem?.id).map(r => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  step="0.1"
+                  placeholder="Current Weight (lbs)"
+                  value={rabbitForm.currentWeight}
+                  onChange={(e) => setRabbitForm({...rabbitForm, currentWeight: e.target.value})}
+                  style={inputStyle}
+                />
+                <div style={{marginBottom: '1rem'}}>
+                  <label style={{display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#6b7280'}}>
+                    Photo Upload
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    style={{...inputStyle, padding: '0.5rem'}}
+                  />
+                  {rabbitForm.photo && (
+                    <img src={rabbitForm.photo} alt="Preview" style={{width: '100px', height: '100px', objectFit: 'cover', borderRadius: '0.5rem', marginTop: '0.5rem'}} />
+                  )}
+                </div>
                 <textarea
                   placeholder="Notes"
                   value={rabbitForm.notes}
