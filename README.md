@@ -6,6 +6,10 @@ A comprehensive web application for managing a rabbit breeding operation on a ho
 ![Vite](https://img.shields.io/badge/Vite-5.x-646CFF)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+## Live Demo
+
+🚀 **[View Live Demo](https://your-deployment-url.vercel.app)** *(Update this link after deploying to Vercel)*
+
 ## Features
 
 - **Rabbit Management** - Track individual rabbits with breed, age, gender, and health status
@@ -21,7 +25,7 @@ A comprehensive web application for managing a rabbit breeding operation on a ho
 - **Frontend**: React 18 with Hooks
 - **Styling**: Custom CSS with modern design patterns
 - **Icons**: Lucide React
-- **State Management**: React useState (in-memory storage)
+- **State Management**: React useState with localStorage persistence
 - **Build Tool**: Vite
 
 ## Screenshots
@@ -125,13 +129,18 @@ The production-ready files will be in the `dist/` folder.
 4. Build command: `npm run build`
 5. Publish directory: `dist`
 
+## Recent Updates
+
+- ✅ **Data persistence with localStorage** - All data now persists between sessions
+- ✅ **Photo upload for rabbits** - Upload and display rabbit photos
+- ✅ **Weight tracking** - Track rabbit weights over time with history
+- ✅ **Parent tracking** - Record dam (mother) and sire (father) for each rabbit
+
 ## Future Enhancements
 
-- [ ] Data persistence with localStorage
+- [ ] Weight tracking charts and visualization
 - [ ] Data export to CSV/PDF
-- [ ] Photo upload for rabbits
-- [ ] Weight tracking with charts
-- [ ] Pedigree visualization
+- [ ] Pedigree tree visualization
 - [ ] Print-friendly reports
 - [ ] Mobile responsive improvements
 - [ ] Dark mode theme
